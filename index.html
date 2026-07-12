@@ -817,6 +817,8 @@
         document.getElementById('spinOnceBtn').disabled = true;
         document.getElementById('autoBtn').disabled = true;
       }
+
+      saveSession();
     }
 
     function renderResults() {
@@ -849,6 +851,72 @@
       ).join('');
     }
 
+    const SESSION_KEY = 'VSMM_SESSION_DATA';
+
+    function saveSession() {
+      try {
+        const data = {
+          spinsLeft,
+          won,
+          specialHistory,
+          currentAngle
+        };
+        localStorage.setItem(SESSION_KEY, JSON.stringify(data));
+      } catch (e) {
+        console.error('Lỗi lưu dữ liệu:', e);
+      }
+    }
+
+    function loadSession() {
+      try {
+        const saved = localStorage.getItem(SESSION_KEY);
+        if (saved) {
+          const data = JSON.parse(saved);
+          if (typeof data.spinsLeft === 'number' && data.spinsLeft >= 0 && data.spinsLeft <= totalSpins) {
+            spinsLeft = data.spinsLeft;
+          }
+          if (Array.isArray(data.won) && data.won.length === PRIZES.length) {
+            won = data.won;
+          }
+          if (Array.isArray(data.specialHistory)) {
+            specialHistory = data.specialHistory;
+          }
+          if (typeof data.currentAngle === 'number' && !isNaN(data.currentAngle)) {
+            currentAngle = data.currentAngle;
+          }
+          return true;
+        }
+      } catch (e) {
+        console.error('Lỗi tải dữ liệu:', e);
+      }
+      return false;
+    }
+
+    function syncUIFromState() {
+      const spinsDone = totalSpins - spinsLeft;
+      document.getElementById('spinCount').textContent = spinsDone;
+      document.getElementById('remaining').textContent = spinsLeft;
+
+      let prizesWon = 0;
+      for (let i = 0; i < PRIZES.length; i++) {
+        if (PRIZES[i].isSpecial) prizesWon += won[i];
+      }
+      document.getElementById('prizeCount').textContent = prizesWon;
+      document.getElementById('progressFill').style.width = (spinsDone / totalSpins * 100) + '%';
+
+      renderResults();
+      renderHistory();
+
+      if (spinsLeft <= 0) {
+        setButtons(false);
+        document.getElementById('spinBtn').textContent = 'HẾT\nLƯỢT';
+        document.getElementById('spinOnceBtn').disabled = true;
+        document.getElementById('autoBtn').disabled = true;
+      } else {
+        document.getElementById('spinBtn').textContent = 'QUAY\nNGAY';
+      }
+    }
+
     let toastTimer;
     function showToast(p) {
       const toast = document.getElementById('toast');
@@ -864,6 +932,16 @@
       toast.classList.add('show');
       clearTimeout(toastTimer);
       toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+    }
+
+    function showCustomToast(icon, name, sub) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toastIcon').textContent = icon;
+      document.getElementById('toastName').textContent = name;
+      document.getElementById('toastSub').textContent = sub;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 3200);
     }
 
     function launchConfetti() {
@@ -928,21 +1006,17 @@
     }
 
     function reset() {
+      if (!confirm("Bạn có chắc chắn muốn chơi lại từ đầu và xoá hết kết quả đã lưu không?")) return;
       if (autoTimer !== null) stopAuto();
       spinsLeft = totalSpins;
       won = Array(PRIZES.length).fill(0);
       specialHistory = [];
       currentAngle = 0;
-      document.getElementById('spinCount').textContent = '0';
-      document.getElementById('remaining').textContent = totalSpins;
-      document.getElementById('prizeCount').textContent = '0';
-      document.getElementById('progressFill').style.width = '0%';
-      document.getElementById('spinBtn').textContent = 'QUAY\nNGAY';
-      document.getElementById('toast').classList.remove('show');
-      renderResults();
-      renderHistory();
+      localStorage.removeItem(SESSION_KEY);
+      syncUIFromState();
       drawWheel(0);
       setButtons(true);
+      document.getElementById('toast').classList.remove('show');
     }
 
     function makeBubbles() {
@@ -958,10 +1032,19 @@
     }
 
     makeBubbles();
+
+    const restored = loadSession();
+    syncUIFromState();
+
+    if (restored && totalSpins - spinsLeft > 0) {
+      setTimeout(() => {
+        showCustomToast("💾", "ĐÃ KHÔI PHỤC DỮ LIỆU", `Đã khôi phục kết quả ${totalSpins - spinsLeft} lượt quay trước đó`);
+      }, 600);
+    }
     
     // Đảm bảo font tải xong hoàn toàn để Canvas render chuẩn xác chữ to và đẹp
     document.fonts.ready.then(() => {
-      drawWheel(0);
+      drawWheel(currentAngle || 0);
       renderResults();
     });
   </script>
