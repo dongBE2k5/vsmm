@@ -542,12 +542,16 @@
       { name: "TẶNG THÊM 1 CÂY", icon: "🌭", prob: 0.0995, color: "#2dc653", textColor: "#fff", isSpecial: false, count: 150 }
     ];
 
+    // Mốc dữ liệu ban đầu: đã trừ 67 Hình xăm (16 Kuromi + 51 Hello Kitty) và 4 Lạp xưởng
+    const INITIAL_WON = [0, 0, 0, 16, 0, 51, 0, 4];
+    const INITIAL_SPINS_LEFT = 1507 - 71; // 1436
+
     let totalSpins = 1507;
-    let spinsLeft = 1507;
+    let spinsLeft = INITIAL_SPINS_LEFT;
     let isSpinning = false;
     let autoTimer = null;
     let currentAngle = 0;
-    let won = Array(PRIZES.length).fill(0);
+    let won = [...INITIAL_WON];
     let specialHistory = [];
 
     const canvas = document.getElementById('wheel');
@@ -710,6 +714,18 @@
     }
 
     function pickPrize() {
+      const remainingCounts = PRIZES.map((p, i) => Math.max(0, p.count - won[i]));
+      const totalRemaining = remainingCounts.reduce((a, b) => a + b, 0);
+
+      if (totalRemaining > 0) {
+        let r2 = Math.random() * totalRemaining;
+        let cumulative = 0;
+        for (let i = 0; i < PRIZES.length; i++) {
+          cumulative += remainingCounts[i];
+          if (r2 <= cumulative) return i;
+        }
+      }
+
       let r2 = Math.random();
       let cumulative = 0;
       for (let i = 0; i < PRIZES.length; i++) {
@@ -834,7 +850,7 @@
             <div class="name">${p.name}</div>
             <div class="count-row">
               <span class="count">${won[i]}</span>
-              <span class="rate">(${actualRate}%)</span>
+              <span class="rate">/ ${p.count} (${actualRate}%)</span>
             </div>
           </div>
         </div>`;
@@ -851,7 +867,7 @@
       ).join('');
     }
 
-    const SESSION_KEY = 'VSMM_SESSION_DATA';
+    const SESSION_KEY = 'VSMM_SESSION_DATA_SUB71';
 
     function saveSession() {
       try {
@@ -1006,10 +1022,10 @@
     }
 
     function reset() {
-      if (!confirm("Bạn có chắc chắn muốn chơi lại từ đầu và xoá hết kết quả đã lưu không?")) return;
+      if (!confirm("Bạn có chắc chắn muốn đặt lại kết quả về mốc ban đầu (đã trừ 67 hình xăm & 4 lạp xưởng)?")) return;
       if (autoTimer !== null) stopAuto();
-      spinsLeft = totalSpins;
-      won = Array(PRIZES.length).fill(0);
+      spinsLeft = INITIAL_SPINS_LEFT;
+      won = [...INITIAL_WON];
       specialHistory = [];
       currentAngle = 0;
       localStorage.removeItem(SESSION_KEY);
